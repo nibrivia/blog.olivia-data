@@ -9,6 +9,7 @@ blogdown
 *.png
 *.markdown
 *cache
+deploy.sh
 # History files
 .Rhistory
 .Rapp.history
