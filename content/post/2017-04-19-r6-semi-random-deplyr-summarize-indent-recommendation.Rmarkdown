@@ -1,0 +1,40 @@
+---
+title: 'R^6: moRe Readable deplyR summaRize indentation Recommendation Ramble'
+author: Olivia Brode-Roger
+date: '2017-04-19'
+slug: r4-semi-random-deplyr-summarize-indent-recommendation
+categories:
+  - R
+  - Style
+tags:
+  - R6
+---
+
+Taking a queue for hrbrmstr, here's a quick post!
+
+> I’m encouraging others in the R community to don [R^6] and do their own small, focused posts on topics that would help the R community learn things.
+
+-- [hrbrmstr] (https://rud.is/b/2017/04/01/superclassing-to-r%E2%81%B6/)
+
+`dplyr` pipelines can sometimes be long and confusing, especially with multiple `group_by` calls in succession.
+I propose we start *indenting the grouped portions of the pipeline*.
+
+The following code is an example of a standard reporting pipeline reporting new user creation by month. The indents clearly show the two steps: summarise users by year-month, then add the goal based on last year's numbers.
+
+```{r, eval=FALSE}
+getUsers() %>% #Returns a data frame
+  mutate(date = as.Date(created),
+         ay    = date_to_ay(date),
+         month = date_to_aymonth(date)) %>% #created is a date-time object
+  filter(date >= start_date,
+         date <= end_date) %>%
+  group_by(ay, month) %>%
+    summarize(n_new    = n_distinct(uid),
+              date     = as.Date(min(date))) %>% #New users by month
+  group_by(month) %>% #Cheat to get monthly goal
+    arrange(date) %>%
+    mutate(goal = new_user.goal * lag(n_new)) %>%
+    ungroup() %>% 
+  select(-date)
+```
+

@@ -1,0 +1,105 @@
+---
+title: Animate network data
+author: Olivia Brode-Roger
+date: '2017-11-21'
+slug: animate-network-data
+categories:
+  - R
+tags:
+  - tidygraph
+---
+
+I recently had a time-varying network that I wanted to visualize, this is a quick note on how to turn that into an animation.
+
+This post is not intened to go deep in the details, of the what or why, just to get the code out.
+
+```{r data, message=F, warning=FALSE}
+library(ggraph)
+library(tidygraph)
+library(tidyverse)
+
+# The data are stored in multiple csv files, one for each phase (timestamp)
+csv_to_tbl_graph <- function(phase) {
+  read_csv(paste0("animate_network/caviar/phase", phase, ".csv")) %>% 
+    `rownames<-`(.$X1) %>%
+    select(-X1) %>%
+    as.matrix() %>%
+    as_tbl_graph() %>% 
+    activate(nodes) %>% 
+    mutate(phase = phase,
+           node = paste0("n", name)) %>% 
+    select(-name)
+}
+
+phases <- 1:11 %>% map(csv_to_tbl_graph)
+```
+
+The trick to keeping the nodes still is to create the layout first, and then build the plots.
+
+This is done in two phases: building a single network containing all the nodes with repeated `join`s, then assigning node positions using the `create_layout` function.
+
+
+```{r plot, message = F, fig.show='hold', fig.width=4, fig.height=4, cache=TRUE}
+positions <- create_layout(phases %>%
+                             reduce(function(a, b) {
+                               a <- a %>% activate("nodes") %>% select(node)
+                               b <- b %>% activate("nodes") %>% select(node) %>%
+                                 filter(!node %in% paste0("n", c(103, 104))) # Nodes that need to be excluded
+                               graph_join(a, b)
+                               }),
+                           layout = "auto") %>% 
+  mutate(node = as.character(node)) %>% 
+  as_tibble() %>% 
+  select(x, y, node)
+ 
+ylims <- c(min(positions$y), max(positions$y)) 
+xlims <- c(min(positions$x), max(positions$x)) 
+
+plot_caviar <- function(graph) {
+  graph %>% 
+    activate("nodes") %>% 
+    filter(!node %in% paste0("n", c(103, 104))) %>% # Remove nodes
+    mutate(pagerank = centrality_pagerank()) %>% 
+    arrange(node) %>% 
+    ggraph(layout = "manual",
+           node.position = positions %>% 
+             filter(positions$node %in% (graph %>% 
+                                           as_tibble() %>% 
+                                           .[["node"]])) %>% 
+             arrange(node)) +
+    geom_edge_link(aes(alpha = ..index..),
+                   show.legend = FALSE) +
+    geom_node_point(aes(size = sqrt(pagerank)),
+                    show.legend = FALSE,
+                    # size = 7,
+                    color = "steelblue",
+                    ) +
+    geom_node_text(aes(label = str_split(node, "n") %>% map_chr(2),
+                       size = sqrt(pagerank)),
+                   color = "white",
+                   size = 3
+                   ) +
+    expand_limits(x = xlims,
+                  y = ylims) +
+    theme_graph()
+}
+
+#Create plots and save files
+plots <- phases %>% map(plot_caviar)
+i <- 1
+for (p in plots) {
+  # print(p)
+  ggsave(paste0("animate_network/animation/plot", str_pad(i, 2, pad = "0"), ".png"), p)
+  i <- i + 1
+}
+```
+
+We know have a collection of images that we can turn into a gif using `imagemagick`. I fail to get `gganimate` or R libraries to work, but it's a fairly simple command:
+
+```bash
+convert -loop 0 -delay 100 animate_network/animation/plot*.png out.gif
+```
+
+![Animated network](/animate_network/out.gif) 
+
+And there you go!
