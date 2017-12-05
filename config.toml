@@ -1,11 +1,13 @@
-baseurl = "/"
-relativeurls = true
+baseurl = "https://blog.olivia-data.com/"
+relativeurls = false
 languageCode = "en-us"
 title = "Olivia data"
 theme = "hugo-lithium-theme"
 googleAnalytics = "UA-94088010-1"
 disqusShortname = ""
 ignoreFiles = ["\\.Rmd$", "_files$", "_cache$"]
+
+canonifyURLs = true
 
 PygmentsCodeFences = true
 PygmentsStyle = "tango"
